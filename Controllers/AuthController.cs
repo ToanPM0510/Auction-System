@@ -70,8 +70,9 @@ namespace AuctionSystem.Controllers
         {
             var claims = new[]
             {
-                new Claim(ClaimTypes.Name, user.Id.ToString()),
-                new Claim(ClaimTypes.Role, user.Role)
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
             };
 
             // Lấy cấu hình từ appsettings.json và kiểm tra null

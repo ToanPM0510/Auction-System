@@ -34,4 +34,28 @@ namespace AuctionSystem.DTOs
         [Required(ErrorMessage = "Seller ID is required")]
         public int SellerId { get; set; }
     }
+    public class AuctionDto
+    {
+        public int Id { get; set; }
+        public string ProductName { get; set; }
+        public double StartingPrice { get; set; }
+        public double ReservePrice { get; set; }
+        public double CurrentPrice { get; set; }
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+        public bool IsActive { get; set; }
+        public string AuctionType { get; set; }
+        public int SellerId { get; set; }
+        public List<BidDto> Bids { get; set; }
+    }
+
+    public class BidDto
+    {
+        public int Id { get; set; }
+        public int AuctionId { get; set; }
+        public int UserId { get; set; }
+        public double Amount { get; set; }
+        public DateTime BidTime { get; set; }
+        public bool IsAuto { get; set; }
+    }
 }

@@ -38,7 +38,7 @@ namespace AuctionSystem.Controllers
                 MaxAmount = model.MaxAmount,
                 Increment = model.Increment,
                 StopPercentage = model.StopPercentage,
-                UserId = int.Parse(User.FindFirst(ClaimTypes.Name)?.Value ?? "0"),
+                UserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0"),
                 IsActive = true
             };
 

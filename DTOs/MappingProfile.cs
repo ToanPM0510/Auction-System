@@ -11,6 +11,8 @@ namespace AuctionSystem.DTOs
             CreateMap<Bid, BidDTO>();
             CreateMap<AutoBid, AutoBidDTO>();
             CreateMap<User, UserDTO>();
+            CreateMap<Auction, AuctionDto>();
+            CreateMap<Bid, BidDto>();
         }
     }
 }

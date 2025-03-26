@@ -1,13 +1,13 @@
-using AuctionSystem.Models;
+﻿using AuctionSystem.Models;
+using AuctionSystem.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
 using System.Text;
-using AuctionSystem.DTOs;
 using Microsoft.OpenApi.Models;
-using AuctionSystem.Hubs;
+using AuctionSystem.DTOs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,11 +33,11 @@ builder.Services.AddSwaggerGen(option =>
             {
                 Reference = new OpenApiReference
                 {
-                    Type=ReferenceType.SecurityScheme,
-                    Id="Bearer"
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
                 }
             },
-            new string[]{}
+            new string[] { }
         }
     });
 });
@@ -56,7 +56,18 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.InstanceName = "AuctionSystem:";
 });
 builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect("localhost:6379"));
-builder.Services.AddSignalR();
+
+// Add SignalR
+builder.Services.AddSignalR(options =>
+{
+    options.KeepAliveInterval = TimeSpan.FromSeconds(5);
+    options.ClientTimeoutInterval = TimeSpan.FromMinutes(2);
+    options.HandshakeTimeout = TimeSpan.FromSeconds(15);
+});
+
+// Add HttpClient (vẫn cần cho API nếu có)
+builder.Services.AddHttpClient();
+
 // Add JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -88,11 +99,22 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapHub<AuctionHub>("/auctionHub");
+app.MapHub<ChatHub>("/chatHub");
 app.MapControllers();
+
+// Thêm logging để debug
+app.Use(async (context, next) =>
+{
+    Console.WriteLine($"[Request] {context.Request.Method} {context.Request.Path}");
+    await next.Invoke();
+    Console.WriteLine($"[Response] {context.Response.StatusCode}");
+});
 
 app.Run();

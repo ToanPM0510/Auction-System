@@ -1,6 +1,5 @@
-﻿using AuctionSystem.DTOs;
+﻿using AuctionSystem.Models;
 using AuctionSystem.Hubs;
-using AuctionSystem.Models;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,9 +7,9 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using StackExchange.Redis;
-using System.Collections.Concurrent;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using AuctionSystem.DTOs;
 
 namespace AuctionSystem.Controllers
 {
@@ -31,6 +30,16 @@ namespace AuctionSystem.Controllers
             _cache = cache;
             _redis = redis;
             _hubContext = hubContext;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var auctions = await _context.Auctions
+                .Include(a => a.Bids)
+                .ToListAsync();
+            var auctionDtos = _mapper.Map<List<AuctionDto>>(auctions);
+            return Ok(auctionDtos);
         }
 
         [HttpGet("{id}")]
@@ -77,7 +86,7 @@ namespace AuctionSystem.Controllers
                 {
                     AuctionId = model.AuctionId,
                     Amount = model.Amount,
-                    UserId = int.Parse(User.FindFirst(ClaimTypes.Name)?.Value ?? "0"),
+                    UserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0"),
                     BidTime = DateTime.UtcNow,
                     IsAuto = false
                 };
@@ -86,8 +95,19 @@ namespace AuctionSystem.Controllers
                 _context.Bids.Add(bid);
                 await _context.SaveChangesAsync();
                 await _cache.SetStringAsync($"auction:{model.AuctionId}:price", bid.Amount.ToString());
+
+                // Gửi thông báo qua SignalR
+                Console.WriteLine($"Sending BidUpdated for manual bid: AuctionId={model.AuctionId}, Amount={bid.Amount}");
                 await _hubContext.Clients.Group(model.AuctionId.ToString())
-                    .SendAsync("BidUpdated", new { AuctionId = model.AuctionId, CurrentPrice = bid.Amount, BidderId = bid.UserId, IsAuto = false });
+                    .SendAsync("BidUpdated", new
+                    {
+                        AuctionId = model.AuctionId,
+                        CurrentPrice = bid.Amount,
+                        BidderId = bid.UserId,
+                        IsAuto = bid.IsAuto,
+                        BidTime = bid.BidTime.ToString("o")
+                    });
+
                 Console.WriteLine($"Manual bid placed: AuctionId={model.AuctionId}, Amount={bid.Amount}");
                 await ProcessAutoBids(model.AuctionId, bid.Amount);
 
@@ -164,8 +184,18 @@ namespace AuctionSystem.Controllers
                     _context.Bids.Add(bid);
                     await _context.SaveChangesAsync();
                     await _cache.SetStringAsync($"auction:{auctionId}:price", bid.Amount.ToString());
+
+                    // Gửi thông báo qua SignalR
+                    Console.WriteLine($"Sending BidUpdated for auto-bid: AuctionId={auctionId}, Amount={bid.Amount}");
                     await _hubContext.Clients.Group(auctionId.ToString())
-                        .SendAsync("BidUpdated", new { AuctionId = auctionId, CurrentPrice = bid.Amount, BidderId = bid.UserId, IsAuto = true });
+                        .SendAsync("BidUpdated", new
+                        {
+                            AuctionId = auctionId,
+                            CurrentPrice = bid.Amount,
+                            BidderId = bid.UserId,
+                            IsAuto = bid.IsAuto,
+                            BidTime = bid.BidTime.ToString("o")
+                        });
 
                     Console.WriteLine($"Auto-bid placed: AuctionId={auctionId}, Amount={amount}, UserId={userId}");
                 }
@@ -201,7 +231,7 @@ namespace AuctionSystem.Controllers
                 StartTime = DateTime.UtcNow,
                 EndTime = DateTime.UtcNow.AddHours(1),
                 IsActive = true,
-                SellerId = int.Parse(User.FindFirst(ClaimTypes.Name)?.Value ?? "0")
+                SellerId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0")
             };
 
             _context.Auctions.Add(auction);
